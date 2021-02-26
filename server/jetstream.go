@@ -258,7 +258,7 @@ func (s *Server) handleOutOfSpace(stream string) {
 			TypedEvent: TypedEvent{
 				Type: JSServerOutOfStorageAdvisoryType,
 				ID:   nuid.Next(),
-				Time: UtcTimeNow(),
+				Time: time.Now().UTC(),
 			},
 			Server:   s.Name(),
 			ServerID: s.ID(),
@@ -724,7 +724,7 @@ func (a *Account) EnableJetStream(limits *JetStreamAccountLimits) error {
 			s.Warnf("  Error recreating Stream %q: %v", cfg.Name, err)
 			continue
 		}
-		if !time.Time(cfg.Created).IsZero() {
+		if !cfg.Created.IsZero() {
 			mset.setCreatedTime(cfg.Created)
 		}
 
@@ -772,7 +772,7 @@ func (a *Account) EnableJetStream(limits *JetStreamAccountLimits) error {
 			if isEphemeral {
 				obs.switchToEphemeral()
 			}
-			if !time.Time(cfg.Created).IsZero() {
+			if !cfg.Created.IsZero() {
 				obs.setCreatedTime(cfg.Created)
 			}
 			obs.mu.Lock()

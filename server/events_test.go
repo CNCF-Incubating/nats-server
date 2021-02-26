@@ -255,7 +255,7 @@ func TestSystemAccountNewConnection(t *testing.T) {
 	if cem.Type != ConnectEventMsgType {
 		t.Fatalf("Incorrect schema in connect event: %s", cem.Type)
 	}
-	if time.Time(cem.Time).IsZero() {
+	if cem.Time.IsZero() {
 		t.Fatalf("Event time is not set")
 	}
 	if len(cem.ID) != 22 {
@@ -330,7 +330,7 @@ func TestSystemAccountNewConnection(t *testing.T) {
 	if dem.Type != DisconnectEventMsgType {
 		t.Fatalf("Incorrect schema in connect event: %s", cem.Type)
 	}
-	if time.Time(dem.Time).IsZero() {
+	if dem.Time.IsZero() {
 		t.Fatalf("Event time is not set")
 	}
 	if len(dem.ID) != 22 {
@@ -1687,13 +1687,7 @@ func TestServerEventsStatsZ(t *testing.T) {
 	if m.Server.Version != VERSION {
 		t.Fatalf("Did not match server version")
 	}
-	a := time.Time(m.Stats.Start).After(preStart)
-	b := time.Time(m.Stats.Start).Before(postStart)
-	if !a && b {
-		t.Fatalf("Got a wrong start time for the server %v", m.Stats.Start)
-	}
-
-	if !time.Time(m.Stats.Start).After(preStart) && time.Time(m.Stats.Start).Before(postStart) {
+	if !m.Stats.Start.After(preStart) && m.Stats.Start.Before(postStart) {
 		t.Fatalf("Got a wrong start time for the server %v", m.Stats.Start)
 	}
 	if m.Stats.Connections != 1 {

@@ -34,7 +34,7 @@ import (
 type ConsumerInfo struct {
 	Stream         string          `json:"stream_name"`
 	Name           string          `json:"name"`
-	Created        UtcTime         `json:"created"`
+	Created        time.Time       `json:"created"`
 	Config         *ConsumerConfig `json:"config,omitempty"`
 	Delivered      SequencePair    `json:"delivered"`
 	AckFloor       SequencePair    `json:"ack_floor"`
@@ -50,7 +50,7 @@ type ConsumerConfig struct {
 	DeliverSubject  string        `json:"deliver_subject,omitempty"`
 	DeliverPolicy   DeliverPolicy `json:"deliver_policy"`
 	OptStartSeq     uint64        `json:"opt_start_seq,omitempty"`
-	OptStartTime    *UtcTime      `json:"opt_start_time,omitempty"`
+	OptStartTime    *time.Time    `json:"opt_start_time,omitempty"`
 	AckPolicy       AckPolicy     `json:"ack_policy"`
 	AckWait         time.Duration `json:"ack_wait,omitempty"`
 	MaxDeliver      int           `json:"max_deliver,omitempty"`
@@ -205,7 +205,7 @@ type consumer struct {
 	sfreq             int32
 	ackEventT         string
 	deliveryExcEventT string
-	created           UtcTime
+	created           time.Time
 	closed            bool
 
 	// Clustered.
@@ -430,7 +430,7 @@ func (mset *stream) addConsumerWithAssignment(config *ConsumerConfig, oname stri
 		sfreq:   int32(sampleFreq),
 		maxdc:   uint64(config.MaxDeliver),
 		maxp:    config.MaxAckPending,
-		created: UtcTimeNow(),
+		created: time.Now().UTC(),
 	}
 
 	// Bind internal client to the user account.
@@ -763,7 +763,7 @@ func (o *consumer) sendDeleteAdvisoryLocked() {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerActionAdvisoryType,
 			ID:   nuid.Next(),
-			Time: UtcTimeNow(),
+			Time: time.Now().UTC(),
 		},
 		Stream:   o.stream,
 		Consumer: o.name,
@@ -787,7 +787,7 @@ func (o *consumer) sendCreateAdvisory() {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerActionAdvisoryType,
 			ID:   nuid.Next(),
-			Time: UtcTimeNow(),
+			Time: time.Now().UTC(),
 		},
 		Stream:   o.stream,
 		Consumer: o.name,
@@ -804,7 +804,7 @@ func (o *consumer) sendCreateAdvisory() {
 }
 
 // Created returns created time.
-func (o *consumer) createdTime() UtcTime {
+func (o *consumer) createdTime() time.Time {
 	o.mu.Lock()
 	created := o.created
 	o.mu.Unlock()
@@ -812,7 +812,7 @@ func (o *consumer) createdTime() UtcTime {
 }
 
 // Internal to allow creation time to be restored.
-func (o *consumer) setCreatedTime(created UtcTime) {
+func (o *consumer) setCreatedTime(created time.Time) {
 	o.mu.Lock()
 	o.created = created
 	o.mu.Unlock()
@@ -1136,7 +1136,7 @@ func (o *consumer) processTerm(sseq, dseq, dc uint64) {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerDeliveryTerminatedAdvisoryType,
 			ID:   nuid.Next(),
-			Time: UtcTimeNow(),
+			Time: time.Now().UTC(),
 		},
 		Stream:      o.stream,
 		Consumer:    o.name,
@@ -1390,7 +1390,7 @@ func (o *consumer) sampleAck(sseq, dseq, dc uint64) {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerAckMetricType,
 			ID:   nuid.Next(),
-			Time: UtcTime(now),
+			Time: now,
 		},
 		Stream:      o.stream,
 		Consumer:    o.name,
@@ -1552,7 +1552,7 @@ func nextReqFromMsg(msg []byte) (time.Time, int, bool, error) {
 		if err := json.Unmarshal(req, &cr); err != nil {
 			return time.Time{}, -1, false, err
 		}
-		return time.Time(cr.Expires), cr.Batch, cr.NoWait, nil
+		return cr.Expires, cr.Batch, cr.NoWait, nil
 
 	default:
 		if n, err := strconv.Atoi(string(req)); err == nil {
@@ -1738,7 +1738,7 @@ func (o *consumer) notifyDeliveryExceeded(sseq, dc uint64) {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerDeliveryExceededAdvisoryType,
 			ID:   nuid.Next(),
-			Time: UtcTimeNow(),
+			Time: time.Now().UTC(),
 		},
 		Stream:     o.stream,
 		Consumer:   o.name,
@@ -2329,7 +2329,7 @@ func (o *consumer) selectStartingSeqNo() {
 		} else if o.cfg.OptStartTime != nil {
 			// If we are here we are time based.
 			// TODO(dlc) - Once clustered can't rely on this.
-			o.sseq = o.mset.store.GetSeqFromTime(time.Time(*o.cfg.OptStartTime))
+			o.sseq = o.mset.store.GetSeqFromTime(*o.cfg.OptStartTime)
 		} else {
 			// Default is deliver new only.
 			o.sseq = stats.LastSeq + 1

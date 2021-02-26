@@ -232,7 +232,7 @@ type client struct {
 	mcl        int32
 	mu         sync.Mutex
 	cid        uint64
-	start      UtcTime
+	start      time.Time
 	nonce      []byte
 	pubKey     string
 	nc         net.Conn
@@ -249,11 +249,11 @@ type client struct {
 	atmr       *time.Timer
 	ping       pinfo
 	msgb       [msgScratchSize]byte
-	last       UtcTime
+	last       time.Time
 	headers    bool
 
 	rtt      time.Duration
-	rttStart UtcTime
+	rttStart time.Time
 
 	route *route
 	gw    *gateway
@@ -974,8 +974,8 @@ func (c *client) writeLoop() {
 // for how much time to spend in place flushing for this client. This
 // will normally be called in the readLoop of the client who sent the
 // message that now is being delivered.
-func (c *client) flushClients(budget time.Duration) UtcTime {
-	last := UtcTimeNow()
+func (c *client) flushClients(budget time.Duration) time.Time {
+	last := time.Now().UTC()
 
 	// Check pending clients for flush.
 	for cp := range c.pcd {
@@ -1591,8 +1591,8 @@ func removePassFromTrace(arg []byte) []byte {
 // Returns the RTT by computing the elapsed time since now and `start`.
 // On Windows VM where I (IK) run tests, time.Since() will return 0
 // (I suspect some time granularity issues). So return at minimum 1ns.
-func computeRTT(start UtcTime) time.Duration {
-	rtt := time.Since(start.Time())
+func computeRTT(start time.Time) time.Duration {
+	rtt := time.Since(start)
 	if rtt <= 0 {
 		rtt = time.Nanosecond
 	}
@@ -1615,7 +1615,7 @@ func (c *client) processConnect(arg []byte) error {
 		c.mu.Unlock()
 		return nil
 	}
-	c.last = UtcTimeNow()
+	c.last = time.Now().UTC()
 	// Estimate RTT to start.
 	if c.kind == CLIENT {
 		c.rtt = computeRTT(c.start)
@@ -2004,7 +2004,7 @@ func (c *client) sendRTTPingLocked() bool {
 	// allow the send of the PING if more than 2 secs have elapsed since
 	// the client TCP connection was accepted.
 	if !c.isClosed() &&
-		(c.flags.isSet(firstPongSent) || time.Since(c.start.Time()) > maxNoRTTPingBeforeFirstPong) {
+		(c.flags.isSet(firstPongSent) || time.Since(c.start) > maxNoRTTPingBeforeFirstPong) {
 		c.sendPing()
 		return true
 	}
@@ -2013,7 +2013,7 @@ func (c *client) sendRTTPingLocked() bool {
 
 // Assume the lock is held upon entry.
 func (c *client) sendPing() {
-	c.rttStart = UtcTimeNow()
+	c.rttStart = time.Now().UTC()
 	c.ping.out++
 	if c.trace {
 		c.traceOutOp("PING", nil)
@@ -2109,7 +2109,7 @@ func (c *client) processPing() {
 		c.flags.set(firstPongSent)
 		// If there was a cluster update since this client was created,
 		// send an updated INFO protocol now.
-		if srv.lastCURLsUpdate >= c.start.Time().UnixNano() || c.mpay != int32(opts.MaxPayload) {
+		if srv.lastCURLsUpdate >= c.start.UnixNano() || c.mpay != int32(opts.MaxPayload) {
 			c.enqueueProto(c.generateClientInfoJSON(srv.copyInfo()))
 		}
 		c.mu.Unlock()
@@ -3178,7 +3178,7 @@ func (c *client) trackRemoteReply(subject, reply string) {
 		ReqId:      reply,
 		respThresh: respThresh,
 	}
-	rl.M2.RequestStart = UtcTimeNow()
+	rl.M2.RequestStart = time.Now().UTC()
 	c.rrTracking.rmap[reply] = &rl
 }
 
@@ -3194,7 +3194,7 @@ func (c *client) pruneRemoteTracking() {
 	}
 	now := time.Now()
 	for subject, rl := range c.rrTracking.rmap {
-		if now.After(time.Time(rl.M2.RequestStart.Add(rl.respThresh))) {
+		if now.After(rl.M2.RequestStart.Add(rl.respThresh)) {
 			delete(c.rrTracking.rmap, subject)
 		}
 	}
@@ -3418,7 +3418,7 @@ func (c *client) processInboundClientMsg(msg []byte) (bool, bool) {
 			// Fill this in and send it off to the other side.
 			sl.Status = 200
 			sl.Responder = c.getClientInfo(true)
-			sl.ServiceLatency = UtcTimeSince(sl.RequestStart) - sl.Responder.RTT
+			sl.ServiceLatency = time.Since(sl.RequestStart) - sl.Responder.RTT
 			sl.TotalLatency = sl.ServiceLatency + sl.Responder.RTT
 			sanitizeLatencyMetric(sl)
 			lsub := remoteLatencySubjectForResponse(c.pa.subject)
@@ -3545,7 +3545,7 @@ func (c *client) handleGWReplyMap(msg []byte) bool {
 		// Fill this in and send it off to the other side.
 		sl.Status = 200
 		sl.Responder = c.getClientInfo(true)
-		sl.ServiceLatency = time.Since(time.Time(sl.RequestStart)) - sl.Responder.RTT
+		sl.ServiceLatency = time.Since(sl.RequestStart) - sl.Responder.RTT
 		sl.TotalLatency = sl.ServiceLatency + sl.Responder.RTT
 		sanitizeLatencyMetric(sl)
 		lsub := remoteLatencySubjectForResponse(c.pa.subject)
@@ -4235,11 +4235,11 @@ func (c *client) processPingTimer() {
 		sendPing = true
 	}
 	now := time.Now()
-	needRTT := c.rtt == 0 || now.Sub(c.rttStart.Time()) > DEFAULT_RTT_MEASUREMENT_INTERVAL
+	needRTT := c.rtt == 0 || now.Sub(c.rttStart) > DEFAULT_RTT_MEASUREMENT_INTERVAL
 
 	// Do not delay PINGs for GATEWAY connections.
 	if c.kind != GATEWAY {
-		if delta := now.Sub(c.last.Time()); delta < pingInterval && !needRTT {
+		if delta := now.Sub(c.last); delta < pingInterval && !needRTT {
 			c.Debugf("Delaying PING due to client activity %v ago", delta.Round(time.Second))
 		} else if delta := now.Sub(c.ping.last); delta < pingInterval && !needRTT {
 			c.Debugf("Delaying PING due to remote ping %v ago", delta.Round(time.Second))

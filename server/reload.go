@@ -698,7 +698,7 @@ func (s *Server) Reload() error {
 		return err
 	}
 	s.mu.Lock()
-	s.configTime = UtcTimeNow()
+	s.configTime = time.Now().UTC()
 	s.updateVarzConfigReloadableFields(s.varz)
 	s.mu.Unlock()
 	return nil

@@ -88,15 +88,15 @@ func (l byInBytes) Less(i, j int) bool { return l.ConnInfos[i].InBytes < l.ConnI
 type byLast struct{ ConnInfos }
 
 func (l byLast) Less(i, j int) bool {
-	return l.ConnInfos[i].LastActivity.Time().UnixNano() < l.ConnInfos[j].LastActivity.Time().UnixNano()
+	return l.ConnInfos[i].LastActivity.UnixNano() < l.ConnInfos[j].LastActivity.UnixNano()
 }
 
 // Idle time
 type byIdle struct{ ConnInfos }
 
 func (l byIdle) Less(i, j int) bool {
-	ii := l.ConnInfos[i].LastActivity.Sub(l.ConnInfos[i].Start.Time())
-	ij := l.ConnInfos[j].LastActivity.Sub(l.ConnInfos[j].Start.Time())
+	ii := l.ConnInfos[i].LastActivity.Sub(l.ConnInfos[i].Start)
+	ij := l.ConnInfos[j].LastActivity.Sub(l.ConnInfos[j].Start)
 	return ii < ij
 }
 
@@ -111,14 +111,14 @@ func (l byUptime) Less(i, j int) bool {
 	cj := l.ConnInfos[j]
 	var upi, upj time.Duration
 	if ci.Stop == nil || ci.Stop.IsZero() {
-		upi = l.now.Sub(ci.Start.Time())
+		upi = l.now.Sub(ci.Start)
 	} else {
-		upi = ci.Stop.Sub(ci.Start.Time())
+		upi = ci.Stop.Sub(ci.Start)
 	}
 	if cj.Stop == nil || cj.Stop.IsZero() {
-		upj = l.now.Sub(cj.Start.Time())
+		upj = l.now.Sub(cj.Start)
 	} else {
-		upj = cj.Stop.Sub(cj.Start.Time())
+		upj = cj.Stop.Sub(cj.Start)
 	}
 	return upi < upj
 }
@@ -129,7 +129,7 @@ type byStop struct{ ConnInfos }
 func (l byStop) Less(i, j int) bool {
 	ciStop := l.ConnInfos[i].Stop
 	cjStop := l.ConnInfos[j].Stop
-	return ciStop.Before((*cjStop).Time())
+	return ciStop.Before(*cjStop)
 }
 
 // Reason

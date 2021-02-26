@@ -113,9 +113,9 @@ type StreamState struct {
 	Msgs      uint64          `json:"messages"`
 	Bytes     uint64          `json:"bytes"`
 	FirstSeq  uint64          `json:"first_seq"`
-	FirstTime UtcTime         `json:"first_ts"`
+	FirstTime time.Time       `json:"first_ts"`
 	LastSeq   uint64          `json:"last_seq"`
-	LastTime  UtcTime         `json:"last_ts"`
+	LastTime  time.Time       `json:"last_ts"`
 	Deleted   []uint64        `json:"deleted,omitempty"`
 	Lost      *LostStreamData `json:"lost,omitempty"`
 	Consumers int             `json:"consumer_count"`

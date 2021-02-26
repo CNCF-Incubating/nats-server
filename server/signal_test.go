@@ -96,7 +96,7 @@ func TestSignalToReloadConfig(t *testing.T) {
 		// Wait a bit for action to be performed
 		time.Sleep(500 * time.Millisecond)
 
-		if reloaded := s.ConfigTime(); !reloaded.After(loaded.Time()) {
+		if reloaded := s.ConfigTime(); !reloaded.After(loaded) {
 			t.Fatalf("ConfigTime is incorrect.\nexpected greater than: %s\ngot: %s", loaded, reloaded)
 		}
 	}

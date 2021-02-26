@@ -53,13 +53,13 @@ type FileStoreConfig struct {
 
 // FileStreamInfo allows us to remember created time.
 type FileStreamInfo struct {
-	Created UtcTime
+	Created time.Time
 	StreamConfig
 }
 
 // File ConsumerInfo is used for creating consumer stores.
 type FileConsumerInfo struct {
-	Created UtcTime
+	Created time.Time
 	Name    string
 	ConsumerConfig
 }
@@ -195,10 +195,10 @@ const (
 )
 
 func newFileStore(fcfg FileStoreConfig, cfg StreamConfig) (*fileStore, error) {
-	return newFileStoreWithCreated(fcfg, cfg, UtcTimeNow())
+	return newFileStoreWithCreated(fcfg, cfg, time.Now().UTC())
 }
 
-func newFileStoreWithCreated(fcfg FileStoreConfig, cfg StreamConfig, created UtcTime) (*fileStore, error) {
+func newFileStoreWithCreated(fcfg FileStoreConfig, cfg StreamConfig, created time.Time) (*fileStore, error) {
 	if cfg.Name == "" {
 		return nil, fmt.Errorf("name required")
 	}
@@ -446,10 +446,10 @@ func (fs *fileStore) rebuildState(ld *LostStreamData) {
 		fs.state.Bytes += mb.bytes
 		if fs.state.FirstSeq == 0 || mb.first.seq < fs.state.FirstSeq {
 			fs.state.FirstSeq = mb.first.seq
-			fs.state.FirstTime = UtcTime(time.Unix(0, mb.first.ts).UTC())
+			fs.state.FirstTime = time.Unix(0, mb.first.ts).UTC()
 		}
 		fs.state.LastSeq = mb.last.seq
-		fs.state.LastTime = UtcTime(time.Unix(0, mb.last.ts).UTC())
+		fs.state.LastTime = time.Unix(0, mb.last.ts).UTC()
 		mb.mu.RUnlock()
 	}
 }
@@ -607,11 +607,11 @@ func (fs *fileStore) recoverMsgs() error {
 			if mb := fs.recoverMsgBlock(fi, index); mb != nil {
 				if fs.state.FirstSeq == 0 || mb.first.seq < fs.state.FirstSeq {
 					fs.state.FirstSeq = mb.first.seq
-					fs.state.FirstTime = UtcTime(time.Unix(0, mb.first.ts).UTC())
+					fs.state.FirstTime = time.Unix(0, mb.first.ts).UTC()
 				}
 				if mb.last.seq > fs.state.LastSeq {
 					fs.state.LastSeq = mb.last.seq
-					fs.state.LastTime = UtcTime(time.Unix(0, mb.last.ts).UTC())
+					fs.state.LastTime = time.Unix(0, mb.last.ts).UTC()
 				}
 				fs.state.Msgs += mb.msgs
 				fs.state.Bytes += mb.bytes
@@ -808,13 +808,13 @@ func (fs *fileStore) storeRawMsg(subj string, hdr, msg []byte, seq uint64, ts in
 	now := time.Unix(0, ts).UTC()
 	if fs.state.Msgs == 0 {
 		fs.state.FirstSeq = seq
-		fs.state.FirstTime = UtcTime(now)
+		fs.state.FirstTime = now
 	}
 
 	fs.state.Msgs++
 	fs.state.Bytes += n
 	fs.state.LastSeq = seq
-	fs.state.LastTime = UtcTime(now)
+	fs.state.LastTime = now
 
 	// Limits checks and enforcement.
 	// If they do any deletions they will update the
@@ -906,14 +906,14 @@ func (fs *fileStore) SkipMsg() uint64 {
 	now := time.Now().UTC()
 	seq := fs.state.LastSeq + 1
 	fs.state.LastSeq = seq
-	fs.state.LastTime = UtcTime(now)
+	fs.state.LastTime = now
 	if fs.state.Msgs == 0 {
 		fs.state.FirstSeq = seq
-		fs.state.FirstTime = UtcTime(now)
+		fs.state.FirstTime = now
 	}
 	if seq == fs.state.FirstSeq {
 		fs.state.FirstSeq = seq + 1
-		fs.state.FirstTime = UtcTime(now)
+		fs.state.FirstTime = now
 	}
 	fs.lmb.skipMsg(seq, now)
 
@@ -1081,7 +1081,7 @@ func (fs *fileStore) removeMsg(seq uint64, secure bool) (bool, error) {
 			shouldWriteIndex = true
 			if seq == fs.state.FirstSeq {
 				fs.state.FirstSeq = mb.first.seq // new one.
-				fs.state.FirstTime = UtcTime(time.Unix(0, mb.first.ts).UTC())
+				fs.state.FirstTime = time.Unix(0, mb.first.ts).UTC()
 			}
 		}
 	} else {
@@ -1440,12 +1440,12 @@ func (fs *fileStore) selectNextFirst() {
 		mb := fs.blks[0]
 		mb.mu.RLock()
 		fs.state.FirstSeq = mb.first.seq
-		fs.state.FirstTime = UtcTime(time.Unix(0, mb.first.ts).UTC())
+		fs.state.FirstTime = time.Unix(0, mb.first.ts).UTC()
 		mb.mu.RUnlock()
 	} else {
 		// Could not find anything, so treat like purge
 		fs.state.FirstSeq = fs.state.LastSeq + 1
-		fs.state.FirstTime = UtcTime{}
+		fs.state.FirstTime = time.Time{}
 	}
 }
 
@@ -2605,7 +2605,7 @@ func (fs *fileStore) Purge() (uint64, error) {
 	rbytes := int64(fs.state.Bytes)
 
 	fs.state.FirstSeq = fs.state.LastSeq + 1
-	fs.state.FirstTime = UtcTime{}
+	fs.state.FirstTime = time.Time{}
 
 	fs.state.Bytes = 0
 	fs.state.Msgs = 0
@@ -2739,7 +2739,7 @@ func (fs *fileStore) Truncate(seq uint64) error {
 
 	// Reset last.
 	fs.state.LastSeq = lsm.seq
-	fs.state.LastTime = UtcTime(time.Unix(0, lsm.ts).UTC())
+	fs.state.LastTime = time.Unix(0, lsm.ts).UTC()
 	// Update msgs and bytes.
 	fs.state.Msgs -= purged
 	fs.state.Bytes -= bytes
@@ -3187,7 +3187,7 @@ func (fs *fileStore) ConsumerStore(name string, cfg *ConsumerConfig) (ConsumerSt
 	// Write our meta data iff does not exist.
 	meta := path.Join(odir, JetStreamMetaFile)
 	if _, err := os.Stat(meta); err != nil && os.IsNotExist(err) {
-		csi.Created = UtcTimeNow()
+		csi.Created = time.Now().UTC()
 		if err := o.writeConsumerMeta(); err != nil {
 			return nil, err
 		}

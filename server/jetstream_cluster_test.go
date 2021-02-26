@@ -2785,33 +2785,13 @@ func TestJetStreamClusterCreateResponseAdvisoriesHaveSubject(t *testing.T) {
 	for m, err := sub.NextMsg(0); err == nil; m, err = sub.NextMsg(0) {
 		var audit JSAPIAudit
 		if err := json.Unmarshal(m.Data, &audit); err != nil {
-			t.Fatalf("Unexpected error: %v\nwhen parsing msgs: %s", err, string(m.Data))
+			t.Fatalf("Unexpected error: %v", err)
 		}
 		if audit.Subject == "" {
 			t.Fatalf("Expected subject, got nothing")
 		}
 	}
 }
-
-func TestUtcTime(t *testing.T) {
-	var audit JSAPIAudit
-	audit.Time = UtcTime(time.Now())
-	now := time.Now()
-	m := struct {
-		T1 UtcTime
-		T2 time.Time
-		T3 time.Time
-	}{UtcTime(now), now, now.UTC()}
-
-	if msg, err := json.Marshal(m); err != nil {
-		t.Fatal(err)
-	} else if err := json.Unmarshal([]byte(msg), &m); err != nil {
-		t.Fatal(string(msg), err)
-	}
-	//2021-02-25T23:30:03.383246Z
-}
-
-//{"type":"io.nats.jetstream.advisory.v1.api_audit","id":"31lC9w9Z7Ws1tWhFR2zqyt","timestamp":{},"serv
 
 func TestJetStreamClusterRestartAndRemoveAdvisories(t *testing.T) {
 	// FIXME(dlc) - Flaky on Travis, skip for now.
