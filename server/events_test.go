@@ -255,7 +255,7 @@ func TestSystemAccountNewConnection(t *testing.T) {
 	if cem.Type != ConnectEventMsgType {
 		t.Fatalf("Incorrect schema in connect event: %s", cem.Type)
 	}
-	if cem.Time.IsZero() {
+	if time.Time(cem.Time).IsZero() {
 		t.Fatalf("Event time is not set")
 	}
 	if len(cem.ID) != 22 {
@@ -330,7 +330,7 @@ func TestSystemAccountNewConnection(t *testing.T) {
 	if dem.Type != DisconnectEventMsgType {
 		t.Fatalf("Incorrect schema in connect event: %s", cem.Type)
 	}
-	if dem.Time.IsZero() {
+	if time.Time(dem.Time).IsZero() {
 		t.Fatalf("Event time is not set")
 	}
 	if len(dem.ID) != 22 {
@@ -1635,7 +1635,7 @@ func TestSystemAccountWithGateways(t *testing.T) {
 }
 func TestServerEventsStatsZ(t *testing.T) {
 	serverStatsReqSubj := "$SYS.REQ.SERVER.%s.STATSZ"
-	preStart := time.Now()
+	preStart := time.Now().UTC()
 	// Add little bit of delay to make sure that time check
 	// between pre-start and actual start does not fail.
 	time.Sleep(5 * time.Millisecond)
@@ -1644,7 +1644,7 @@ func TestServerEventsStatsZ(t *testing.T) {
 	defer sb.Shutdown()
 	// Same between actual start and post start.
 	time.Sleep(5 * time.Millisecond)
-	postStart := time.Now()
+	postStart := time.Now().UTC()
 
 	url := fmt.Sprintf("nats://%s:%d", optsA.Host, optsA.Port)
 	ncs, err := nats.Connect(url, createUserCreds(t, sa, akp))
@@ -1687,7 +1687,13 @@ func TestServerEventsStatsZ(t *testing.T) {
 	if m.Server.Version != VERSION {
 		t.Fatalf("Did not match server version")
 	}
-	if !m.Stats.Start.After(preStart) && m.Stats.Start.Before(postStart) {
+	a := time.Time(m.Stats.Start).After(preStart)
+	b := time.Time(m.Stats.Start).Before(postStart)
+	if !a && b {
+		t.Fatalf("Got a wrong start time for the server %v", m.Stats.Start)
+	}
+
+	if !time.Time(m.Stats.Start).After(preStart) && time.Time(m.Stats.Start).Before(postStart) {
 		t.Fatalf("Got a wrong start time for the server %v", m.Stats.Start)
 	}
 	if m.Stats.Connections != 1 {

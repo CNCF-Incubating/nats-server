@@ -102,7 +102,7 @@ func (ms *memStore) storeRawMsg(subj string, hdr, msg []byte, seq uint64, ts int
 	}
 
 	// Adjust first if needed.
-	now := time.Unix(0, ts).UTC()
+	now := UtcTime(time.Unix(0, ts).UTC())
 	if ms.state.Msgs == 0 {
 		ms.state.FirstSeq = seq
 		ms.state.FirstTime = now
@@ -169,7 +169,7 @@ func (ms *memStore) StoreMsg(subj string, hdr, msg []byte) (uint64, int64, error
 // SkipMsg will use the next sequence number but not store anything.
 func (ms *memStore) SkipMsg() uint64 {
 	// Grab time.
-	now := time.Now().UTC()
+	now := UtcTimeNow()
 
 	ms.mu.Lock()
 	seq := ms.state.LastSeq + 1
@@ -286,7 +286,7 @@ func (ms *memStore) Purge() (uint64, error) {
 	cb := ms.scb
 	bytes := int64(ms.state.Bytes)
 	ms.state.FirstSeq = ms.state.LastSeq + 1
-	ms.state.FirstTime = time.Time{}
+	ms.state.FirstTime = UtcTime{}
 	ms.state.Bytes = 0
 	ms.state.Msgs = 0
 	ms.msgs = make(map[uint64]*storedMsg)
@@ -319,7 +319,7 @@ func (ms *memStore) Compact(seq uint64) (uint64, error) {
 			return 0, ErrStoreMsgNotFound
 		}
 		ms.state.FirstSeq = seq
-		ms.state.FirstTime = time.Unix(0, sm.ts).UTC()
+		ms.state.FirstTime = UtcTime(time.Unix(0, sm.ts).UTC())
 
 		for seq := seq - 1; seq > 0; seq-- {
 			if sm := ms.msgs[seq]; sm != nil {
@@ -340,7 +340,7 @@ func (ms *memStore) Compact(seq uint64) (uint64, error) {
 		ms.state.Bytes = 0
 		ms.state.Msgs = 0
 		ms.state.FirstSeq = seq
-		ms.state.FirstTime = time.Time{}
+		ms.state.FirstTime = UtcTime{}
 		ms.state.LastSeq = seq - 1
 		ms.msgs = make(map[uint64]*storedMsg)
 	}
@@ -375,7 +375,7 @@ func (ms *memStore) Truncate(seq uint64) error {
 	}
 	// Reset last.
 	ms.state.LastSeq = lsm.seq
-	ms.state.LastTime = time.Unix(0, lsm.ts).UTC()
+	ms.state.LastTime = UtcTime(time.Unix(0, lsm.ts).UTC())
 	// Update msgs and bytes.
 	ms.state.Msgs -= purged
 	ms.state.Bytes -= bytes
@@ -451,11 +451,11 @@ func (ms *memStore) updateFirstSeq(seq uint64) {
 	}
 	if nsm != nil {
 		ms.state.FirstSeq = nsm.seq
-		ms.state.FirstTime = time.Unix(0, nsm.ts).UTC()
+		ms.state.FirstTime = UtcTime(time.Unix(0, nsm.ts).UTC())
 	} else {
 		// Like purge.
 		ms.state.FirstSeq = ms.state.LastSeq + 1
-		ms.state.FirstTime = time.Time{}
+		ms.state.FirstTime = UtcTime{}
 		ms.dmap = make(map[uint64]struct{})
 	}
 }

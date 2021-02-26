@@ -373,7 +373,7 @@ func TestConfigReload(t *testing.T) {
 		t.Fatalf("MaxPayload is incorrect.\nexpected 1024\ngot: %d", updated.MaxPayload)
 	}
 
-	if reloaded := server.ConfigTime(); !reloaded.After(loaded) {
+	if reloaded := server.ConfigTime(); !reloaded.After(loaded.Time()) {
 		t.Fatalf("ConfigTime is incorrect.\nexpected greater than: %s\ngot: %s", loaded, reloaded)
 	}
 }

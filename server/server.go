@@ -131,7 +131,7 @@ type Server struct {
 	totalClients     uint64
 	closed           *closedRingBuffer
 	done             chan bool
-	start            time.Time
+	start            UtcTime
 	http             net.Listener
 	httpHandler      http.Handler
 	httpBasePath     string
@@ -161,8 +161,8 @@ type Server struct {
 	grRunning    bool
 	grWG         sync.WaitGroup // to wait on various go routines
 
-	cproto     int64     // number of clients supporting async INFO
-	configTime time.Time // last time config was loaded
+	cproto     int64   // number of clients supporting async INFO
+	configTime UtcTime // last time config was loaded
 
 	logging struct {
 		sync.RWMutex
@@ -315,7 +315,7 @@ func NewServer(opts *Options) (*Server, error) {
 		info.TLSAvailable = true
 	}
 
-	now := time.Now()
+	now := UtcTimeNow()
 
 	s := &Server{
 		kp:           kp,
@@ -682,7 +682,7 @@ func (s *Server) configureAccounts() error {
 			acc.ic.acc = acc
 			acc.addAllServiceImportSubs()
 		}
-		acc.updated = time.Now()
+		acc.updated = UtcTimeNow()
 		return true
 	})
 
@@ -1177,7 +1177,7 @@ func (s *Server) createInternalClient(kind int) *client {
 	if kind != SYSTEM && kind != JETSTREAM && kind != ACCOUNT {
 		return nil
 	}
-	now := time.Now()
+	now := UtcTimeNow()
 	c := &client{srv: s, kind: kind, opts: internalOpts, msubs: -1, mpay: -1, start: now, last: now}
 	c.initClient()
 	c.echo = false
@@ -1246,7 +1246,7 @@ func (s *Server) registerAccountNoLock(acc *Account) *Account {
 		acc.lqws = make(map[string]int32)
 	}
 	acc.srv = s
-	acc.updated = time.Now()
+	acc.updated = UtcTimeNow()
 	acc.mu.Unlock()
 	s.accounts.Store(acc.Name, acc)
 	s.tmpAccounts.Delete(acc.Name)
@@ -1295,7 +1295,7 @@ func (s *Server) LookupAccount(name string) (*Account, error) {
 // Lock MUST NOT be held upon entry.
 func (s *Server) updateAccount(acc *Account) error {
 	// TODO(dlc) - Make configurable
-	if !acc.incomplete && time.Since(acc.updated) < time.Second {
+	if !acc.incomplete && time.Since(acc.updated.Time()) < time.Second {
 		s.Debugf("Requested account update for [%s] ignored, too soon", acc.Name)
 		return ErrAccountResolverUpdateTooSoon
 	}
@@ -2202,7 +2202,7 @@ func (s *Server) createClient(conn net.Conn) *client {
 	if maxSubs == 0 {
 		maxSubs = -1
 	}
-	now := time.Now()
+	now := UtcTimeNow()
 
 	c := &client{srv: s, nc: conn, opts: defaultOpts, mpay: maxPay, msubs: maxSubs, start: now, last: now}
 
@@ -2356,7 +2356,7 @@ func (s *Server) createClient(conn net.Conn) *client {
 // This will save off a closed client in a ring buffer such that
 // /connz can inspect. Useful for debugging, etc.
 func (s *Server) saveClosedClient(c *client, nc net.Conn, reason ClosedState) {
-	now := time.Now()
+	now := UtcTimeNow()
 
 	s.accountDisconnectEvent(c, now, reason.String())
 
@@ -2619,7 +2619,7 @@ func (s *Server) NumSlowConsumers() int64 {
 }
 
 // ConfigTime will report the last time the server configuration was loaded.
-func (s *Server) ConfigTime() time.Time {
+func (s *Server) ConfigTime() UtcTime {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.configTime

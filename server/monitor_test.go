@@ -209,7 +209,7 @@ func TestHandleVarz(t *testing.T) {
 		v := pollVarz(t, s, mode, url+"varz", nil)
 
 		// Do some sanity checks on values
-		if time.Since(v.Start) > 10*time.Second {
+		if UtcTimeSince(v.Start) > 10*time.Second {
 			t.Fatal("Expected start time to be within 10 seconds.")
 		}
 	}
@@ -621,7 +621,7 @@ func TestConnzLastActivity(t *testing.T) {
 			t.Fatalf("Expected LastActivity for connection '%s'to be valid\n", ciBar.Name)
 		}
 		// Foo should be older than Bar
-		if ciFoo.LastActivity.After(ciBar.LastActivity) {
+		if ciFoo.LastActivity.After(ciBar.LastActivity.Time()) {
 			t.Fatal("Expected connection 'foo' to be older than 'bar'\n")
 		}
 
@@ -815,9 +815,9 @@ func TestConnzSortedByStart(t *testing.T) {
 	url := fmt.Sprintf("http://127.0.0.1:%d/", s.MonitorAddr().Port)
 	for mode := 0; mode < 2; mode++ {
 		c := pollConz(t, s, mode, url+"connz?sort=start", &ConnzOptions{Sort: ByStart})
-		if c.Conns[0].Start.After(c.Conns[1].Start) ||
-			c.Conns[1].Start.After(c.Conns[2].Start) ||
-			c.Conns[2].Start.After(c.Conns[3].Start) {
+		if c.Conns[0].Start.After(c.Conns[1].Start.Time()) ||
+			c.Conns[1].Start.After(c.Conns[2].Start.Time()) ||
+			c.Conns[2].Start.After(c.Conns[3].Start.Time()) {
 			t.Fatalf("Expected conns sorted in ascending order by startime, got [%v, %v, %v, %v]\n",
 				c.Conns[0].Start, c.Conns[1].Start, c.Conns[2].Start, c.Conns[3].Start)
 		}
@@ -977,7 +977,7 @@ func TestConnzSortedByUptime(t *testing.T) {
 		now := time.Now()
 		ups := make([]int, 4)
 		for i := 0; i < 4; i++ {
-			ups[i] = int(now.Sub(c.Conns[i].Start))
+			ups[i] = int(now.Sub(c.Conns[i].Start.Time()))
 		}
 		if !sort.IntsAreSorted(ups) {
 			d := make([]time.Duration, 4)
@@ -1015,7 +1015,7 @@ func TestConnzSortedByUptimeClosedConn(t *testing.T) {
 		c := pollConz(t, s, mode, url+"connz?state=closed&sort=uptime", &ConnzOptions{State: ConnClosed, Sort: ByUptime})
 		ups := make([]int, 4)
 		for i := 0; i < 4; i++ {
-			ups[i] = int(c.Conns[i].Stop.Sub(c.Conns[i].Start))
+			ups[i] = int(c.Conns[i].Stop.Sub(c.Conns[i].Start.Time()))
 		}
 		if !sort.IntsAreSorted(ups) {
 			d := make([]time.Duration, 4)
@@ -1068,7 +1068,7 @@ func TestConnzSortedByStopTimeClosedConn(t *testing.T) {
 
 	//Now adjust the Stop times for these with some random values.
 	s.mu.Lock()
-	now := time.Now()
+	now := UtcTimeNow()
 	ccs := s.closed.closedClients()
 	for _, cc := range ccs {
 		newStop := now.Add(time.Duration(rand.Int()%120) * -time.Minute)
@@ -1821,7 +1821,7 @@ func TestConnzClosedConnsBadClient(t *testing.T) {
 	}
 	ci := c.Conns[0]
 
-	uptime := ci.Stop.Sub(ci.Start)
+	uptime := ci.Stop.Sub(ci.Start.Time())
 	idle, err := time.ParseDuration(ci.Idle)
 	if err != nil {
 		t.Fatalf("Could not parse Idle: %v\n", err)
@@ -1871,7 +1871,7 @@ func TestConnzClosedConnsBadTLSClient(t *testing.T) {
 	}
 	ci := c.Conns[0]
 
-	uptime := ci.Stop.Sub(ci.Start)
+	uptime := ci.Stop.Sub(ci.Start.Time())
 	idle, err := time.ParseDuration(ci.Idle)
 	if err != nil {
 		t.Fatalf("Could not parse Idle: %v\n", err)

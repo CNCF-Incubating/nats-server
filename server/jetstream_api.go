@@ -505,9 +505,9 @@ const JSApiConsumerListResponseType = "io.nats.jetstream.api.v1.consumer_list_re
 
 // JSApiConsumerGetNextRequest is for getting next messages for pull based consumers.
 type JSApiConsumerGetNextRequest struct {
-	Expires time.Time `json:"expires,omitempty"`
-	Batch   int       `json:"batch,omitempty"`
-	NoWait  bool      `json:"no_wait,omitempty"`
+	Expires UtcTime `json:"expires,omitempty"`
+	Batch   int     `json:"batch,omitempty"`
+	NoWait  bool    `json:"no_wait,omitempty"`
 }
 
 // JSApiStreamTemplateCreateResponse for creating templates.
@@ -2105,7 +2105,7 @@ func (s *Server) jsMsgGetRequest(sub *subscription, c *client, subject, reply st
 		Sequence: req.Seq,
 		Header:   hdr,
 		Data:     msg,
-		Time:     time.Unix(0, ts),
+		Time:     UtcTime(time.Unix(0, ts)),
 	}
 	s.sendAPIResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(resp))
 }
@@ -2271,7 +2271,7 @@ func (s *Server) processStreamRestore(ci *ClientInfo, acc *Account, streamName, 
 		TypedEvent: TypedEvent{
 			Type: JSRestoreCreateAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream: streamName,
 		Client: ci,
@@ -2384,11 +2384,11 @@ func (s *Server) processStreamRestore(ci *ClientInfo, acc *Account, streamName, 
 					TypedEvent: TypedEvent{
 						Type: JSRestoreCompleteAdvisoryType,
 						ID:   nuid.Next(),
-						Time: time.Now().UTC(),
+						Time: UtcTimeNow(),
 					},
 					Stream: streamName,
-					Start:  start.UTC(),
-					End:    end.UTC(),
+					Start:  UtcTime(start.UTC()),
+					End:    UtcTime(end.UTC()),
 					Bytes:  int64(total),
 					Client: ci,
 				})
@@ -2503,7 +2503,7 @@ func (s *Server) jsStreamSnapshotRequest(sub *subscription, c *client, subject, 
 			TypedEvent: TypedEvent{
 				Type: JSSnapshotCreatedAdvisoryType,
 				ID:   nuid.Next(),
-				Time: time.Now().UTC(),
+				Time: UtcTimeNow(),
 			},
 			Stream: mset.name(),
 			State:  sr.State,
@@ -2519,11 +2519,11 @@ func (s *Server) jsStreamSnapshotRequest(sub *subscription, c *client, subject, 
 			TypedEvent: TypedEvent{
 				Type: JSSnapshotCompleteAdvisoryType,
 				ID:   nuid.Next(),
-				Time: time.Now().UTC(),
+				Time: UtcTimeNow(),
 			},
 			Stream: mset.name(),
-			Start:  start.UTC(),
-			End:    end.UTC(),
+			Start:  UtcTime(start.UTC()),
+			End:    UtcTime(end.UTC()),
 			Client: ci,
 		})
 
@@ -3119,7 +3119,7 @@ func (s *Server) sendJetStreamAPIAuditAdvisory(ci *ClientInfo, acc *Account, sub
 		TypedEvent: TypedEvent{
 			Type: JSAPIAuditType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Server:   s.Name(),
 		Client:   ci,

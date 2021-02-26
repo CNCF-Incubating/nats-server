@@ -43,7 +43,7 @@ func init() {
 // Connz represents detailed information on current client connections.
 type Connz struct {
 	ID       string      `json:"server_id"`
-	Now      time.Time   `json:"now"`
+	Now      UtcTime     `json:"now"`
 	NumConns int         `json:"num_connections"`
 	Total    int         `json:"total"`
 	Offset   int         `json:"offset"`
@@ -105,9 +105,9 @@ type ConnInfo struct {
 	Cid            uint64      `json:"cid"`
 	IP             string      `json:"ip"`
 	Port           int         `json:"port"`
-	Start          time.Time   `json:"start"`
-	LastActivity   time.Time   `json:"last_activity"`
-	Stop           *time.Time  `json:"stop,omitempty"`
+	Start          UtcTime     `json:"start"`
+	LastActivity   UtcTime     `json:"last_activity"`
+	Stop           *UtcTime    `json:"stop,omitempty"`
 	Reason         string      `json:"reason,omitempty"`
 	RTT            string      `json:"rtt,omitempty"`
 	Uptime         string      `json:"uptime"`
@@ -223,7 +223,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 	c := &Connz{
 		Offset: offset,
 		Limit:  limit,
-		Now:    time.Now(),
+		Now:    UtcTimeNow(),
 	}
 
 	// Open clients
@@ -449,12 +449,12 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 
 // Fills in the ConnInfo from the client.
 // client should be locked.
-func (ci *ConnInfo) fill(client *client, nc net.Conn, now time.Time) {
+func (ci *ConnInfo) fill(client *client, nc net.Conn, now UtcTime) {
 	ci.Cid = client.cid
 	ci.Start = client.start
 	ci.LastActivity = client.last
-	ci.Uptime = myUptime(now.Sub(client.start))
-	ci.Idle = myUptime(now.Sub(client.last))
+	ci.Uptime = myUptime(now.Sub(client.start.Time()))
+	ci.Idle = myUptime(now.Sub(client.last.Time()))
 	ci.RTT = client.getRTT().String()
 	ci.OutMsgs = client.outMsgs
 	ci.OutBytes = client.outBytes
@@ -639,7 +639,7 @@ func (s *Server) HandleConnz(w http.ResponseWriter, r *http.Request) {
 // Routez represents detailed information on current client connections.
 type Routez struct {
 	ID        string             `json:"server_id"`
-	Now       time.Time          `json:"now"`
+	Now       UtcTime            `json:"now"`
 	Import    *SubjectPermission `json:"import,omitempty"`
 	Export    *SubjectPermission `json:"export,omitempty"`
 	NumRoutes int                `json:"num_routes"`
@@ -678,7 +678,7 @@ type RouteInfo struct {
 // Routez returns a Routez struct containing information about routes.
 func (s *Server) Routez(routezOpts *RoutezOptions) (*Routez, error) {
 	rs := &Routez{Routes: []*RouteInfo{}}
-	rs.Now = time.Now()
+	rs.Now = UtcTimeNow()
 
 	if routezOpts == nil {
 		routezOpts = &RoutezOptions{}
@@ -761,8 +761,8 @@ func (s *Server) HandleRoutez(w http.ResponseWriter, r *http.Request) {
 
 // Subsz represents detail information on current connections.
 type Subsz struct {
-	ID  string    `json:"server_id"`
-	Now time.Time `json:"now"`
+	ID  string  `json:"server_id"`
+	Now UtcTime `json:"now"`
 	*SublistStats
 	Total  int         `json:"total"`
 	Offset int         `json:"offset"`
@@ -859,7 +859,7 @@ func (s *Server) Subsz(opts *SubszOptions) (*Subsz, error) {
 	slStats := &SublistStats{}
 
 	// FIXME(dlc) - Make account aware.
-	sz := &Subsz{s.info.ID, time.Now(), slStats, 0, offset, limit, nil}
+	sz := &Subsz{s.info.ID, UtcTimeNow(), slStats, 0, offset, limit, nil}
 
 	if subdetail {
 		var raw [4096]*subscription
@@ -1024,8 +1024,8 @@ type Varz struct {
 	JetStream             JetStreamVarz         `json:"jetstream,omitempty"`
 	TLSTimeout            float64               `json:"tls_timeout"`
 	WriteDeadline         time.Duration         `json:"write_deadline"`
-	Start                 time.Time             `json:"start"`
-	Now                   time.Time             `json:"now"`
+	Start                 UtcTime               `json:"start"`
+	Now                   UtcTime               `json:"now"`
 	Uptime                string                `json:"uptime"`
 	Mem                   int64                 `json:"mem"`
 	Cores                 int                   `json:"cores"`
@@ -1043,7 +1043,7 @@ type Varz struct {
 	SlowConsumers         int64                 `json:"slow_consumers"`
 	Subscriptions         uint32                `json:"subscriptions"`
 	HTTPReqStats          map[string]uint64     `json:"http_req_stats"`
-	ConfigLoadTime        time.Time             `json:"config_load_time"`
+	ConfigLoadTime        UtcTime               `json:"config_load_time"`
 	Tags                  jwt.TagList           `json:"tags,omitempty"`
 	TrustedOperatorsJwt   []string              `json:"trusted_operators_jwt,omitempty"`
 	TrustedOperatorsClaim []*jwt.OperatorClaims `json:"trusted_operators_claim,omitempty"`
@@ -1347,8 +1347,8 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 // is done.
 // Server lock is held on entry.
 func (s *Server) updateVarzRuntimeFields(v *Varz, forceUpdate bool, pcpu float64, rss int64) {
-	v.Now = time.Now()
-	v.Uptime = myUptime(time.Since(s.start))
+	v.Now = UtcTimeNow()
+	v.Uptime = myUptime(UtcTimeSince(s.start))
 	v.Mem = rss
 	v.CPU = pcpu
 	if l := len(s.info.ClientConnectURLs); l > 0 {
@@ -1463,7 +1463,7 @@ type GatewayzOptions struct {
 // Gatewayz represents detailed information on Gateways
 type Gatewayz struct {
 	ID               string                       `json:"server_id"`
-	Now              time.Time                    `json:"now"`
+	Now              UtcTime                      `json:"now"`
 	Name             string                       `json:"name,omitempty"`
 	Host             string                       `json:"host,omitempty"`
 	Port             int                          `json:"port,omitempty"`
@@ -1491,7 +1491,7 @@ type AccountGatewayz struct {
 // Gatewayz returns a Gatewayz struct containing information about gateways.
 func (s *Server) Gatewayz(opts *GatewayzOptions) (*Gatewayz, error) {
 	srvID := s.ID()
-	now := time.Now()
+	now := UtcTimeNow()
 	gw := s.gateway
 	gw.RLock()
 	if !gw.enabled {
@@ -1542,7 +1542,7 @@ func getMonitorGWOptions(opts *GatewayzOptions) (string, bool) {
 // Returns a map of gateways outbound connections.
 // Based on options, will include a single or all gateways,
 // with no/single/or all accounts interest information.
-func (s *Server) createOutboundsRemoteGatewayz(opts *GatewayzOptions, now time.Time) map[string]*RemoteGatewayz {
+func (s *Server) createOutboundsRemoteGatewayz(opts *GatewayzOptions, now UtcTime) map[string]*RemoteGatewayz {
 	targetGWName, doAccs := getMonitorGWOptions(opts)
 
 	if targetGWName != _EMPTY_ {
@@ -1572,7 +1572,7 @@ func (s *Server) createOutboundsRemoteGatewayz(opts *GatewayzOptions, now time.T
 }
 
 // Returns a RemoteGatewayz for a given outbound gw connection
-func createOutboundRemoteGatewayz(c *client, opts *GatewayzOptions, now time.Time, doAccs bool) (string, *RemoteGatewayz) {
+func createOutboundRemoteGatewayz(c *client, opts *GatewayzOptions, now UtcTime, doAccs bool) (string, *RemoteGatewayz) {
 	var name string
 	var rgw *RemoteGatewayz
 
@@ -1650,7 +1650,7 @@ func createAccountOutboundGatewayz(name string, ei interface{}) *AccountGatewayz
 // may have more than one inbound from the same remote gateway.
 // Based on options, will include a single or all gateways,
 // with no/single/or all accounts interest information.
-func (s *Server) createInboundsRemoteGatewayz(opts *GatewayzOptions, now time.Time) map[string][]*RemoteGatewayz {
+func (s *Server) createInboundsRemoteGatewayz(opts *GatewayzOptions, now UtcTime) map[string][]*RemoteGatewayz {
 	targetGWName, doAccs := getMonitorGWOptions(opts)
 
 	var connsa [16]*client
@@ -1762,7 +1762,7 @@ func (s *Server) HandleGatewayz(w http.ResponseWriter, r *http.Request) {
 // Leafz represents detailed information on Leafnodes.
 type Leafz struct {
 	ID       string      `json:"server_id"`
-	Now      time.Time   `json:"now"`
+	Now      UtcTime     `json:"now"`
 	NumLeafs int         `json:"leafnodes"`
 	Leafs    []*LeafInfo `json:"leafs"`
 }
@@ -1837,7 +1837,7 @@ func (s *Server) Leafz(opts *LeafzOptions) (*Leafz, error) {
 	}
 	return &Leafz{
 		ID:       s.ID(),
-		Now:      time.Now(),
+		Now:      UtcTimeNow(),
 		NumLeafs: len(leafnodes),
 		Leafs:    leafnodes,
 	}, nil
@@ -1994,7 +1994,7 @@ type ExtMap map[string][]*MapDest
 
 type AccountInfo struct {
 	AccountName string               `json:"account_name"`
-	LastUpdate  time.Time            `json:"update_time,omitempty"`
+	LastUpdate  UtcTime              `json:"update_time,omitempty"`
 	IsSystem    bool                 `json:"is_system,omitempty"`
 	Expired     bool                 `json:"expired"`
 	Complete    bool                 `json:"complete"`
@@ -2019,7 +2019,7 @@ type AccountInfo struct {
 
 type Accountz struct {
 	ID            string       `json:"server_id"`
-	Now           time.Time    `json:"now"`
+	Now           UtcTime      `json:"now"`
 	SystemAccount string       `json:"system_account,omitempty"`
 	Accounts      []string     `json:"accounts,omitempty"`
 	Account       *AccountInfo `json:"account_detail,omitempty"`
@@ -2045,7 +2045,7 @@ func (s *Server) HandleAccountz(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Accountz(optz *AccountzOptions) (*Accountz, error) {
 	a := &Accountz{
 		ID:  s.ID(),
-		Now: time.Now(),
+		Now: UtcTimeNow(),
 	}
 	if sacc := s.SystemAccount(); sacc != nil {
 		a.SystemAccount = sacc.GetName()
@@ -2255,7 +2255,7 @@ type AccountDetail struct {
 // LeafInfo has detailed information on each remote leafnode connection.
 type JSInfo struct {
 	ID       string          `json:"server_id"`
-	Now      time.Time       `json:"now"`
+	Now      UtcTime         `json:"now"`
 	Disabled bool            `json:"disabled,omitempty"`
 	Config   JetStreamConfig `json:"config,omitempty"`
 	JetStreamStats
@@ -2389,7 +2389,7 @@ func (s *Server) Jsz(opts *JSzOptions) (*JSInfo, error) {
 	}
 	jsi := &JSInfo{
 		ID:  s.ID(),
-		Now: time.Now(),
+		Now: UtcTimeNow(),
 	}
 	if !s.JetStreamEnabled() {
 		jsi.Disabled = true

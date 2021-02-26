@@ -152,19 +152,19 @@ type accNumConnsReq struct {
 
 // ServerInfo identifies remote servers.
 type ServerInfo struct {
-	Name      string    `json:"name"`
-	Host      string    `json:"host"`
-	ID        string    `json:"id"`
-	Cluster   string    `json:"cluster,omitempty"`
-	Version   string    `json:"ver"`
-	Seq       uint64    `json:"seq"`
-	JetStream bool      `json:"jetstream"`
-	Time      time.Time `json:"time"`
+	Name      string  `json:"name"`
+	Host      string  `json:"host"`
+	ID        string  `json:"id"`
+	Cluster   string  `json:"cluster,omitempty"`
+	Version   string  `json:"ver"`
+	Seq       uint64  `json:"seq"`
+	JetStream bool    `json:"jetstream"`
+	Time      UtcTime `json:"time"`
 }
 
 // ClientInfo is detailed information about the client forming a connection.
 type ClientInfo struct {
-	Start     *time.Time    `json:"start,omitempty"`
+	Start     *UtcTime      `json:"start,omitempty"`
 	Host      string        `json:"host,omitempty"`
 	ID        uint64        `json:"id,omitempty"`
 	Account   string        `json:"acc"`
@@ -176,7 +176,7 @@ type ClientInfo struct {
 	RTT       time.Duration `json:"rtt,omitempty"`
 	Server    string        `json:"server,omitempty"`
 	Cluster   string        `json:"cluster,omitempty"`
-	Stop      *time.Time    `json:"stop,omitempty"`
+	Stop      *UtcTime      `json:"stop,omitempty"`
 	Jwt       string        `json:"jwt,omitempty"`
 	IssuerKey string        `json:"issuer_key,omitempty"`
 	NameTag   string        `json:"name_tag,omitempty"`
@@ -185,7 +185,7 @@ type ClientInfo struct {
 
 // ServerStats hold various statistics that we will periodically send out.
 type ServerStats struct {
-	Start            time.Time      `json:"start"`
+	Start            UtcTime        `json:"start"`
 	Mem              int64          `json:"mem"`
 	Cores            int            `json:"cores"`
 	CPU              float64        `json:"cpu"`
@@ -243,9 +243,9 @@ type serverUpdate struct {
 // TypedEvent is a event or advisory sent by the server that has nats type hints
 // typically used for events that might be consumed by 3rd party event systems
 type TypedEvent struct {
-	Type string    `json:"type"`
-	ID   string    `json:"id"`
-	Time time.Time `json:"timestamp"`
+	Type string  `json:"type"`
+	ID   string  `json:"id"`
+	Time UtcTime `json:"timestamp"`
 }
 
 // internalSendLoop will be responsible for serializing all messages that
@@ -294,7 +294,7 @@ RESET:
 				pm.si.ID = id
 				pm.si.Seq = atomic.AddUint64(seqp, 1)
 				pm.si.Version = VERSION
-				pm.si.Time = time.Now()
+				pm.si.Time = UtcTime(time.Now())
 				pm.si.JetStream = js
 			}
 			var b []byte
@@ -1296,7 +1296,7 @@ func (s *Server) sendAccConnsUpdate(a *Account, subj ...string) {
 		TypedEvent: TypedEvent{
 			Type: AccountNumConnsMsgType,
 			ID:   eid,
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Account:    a.Name,
 		Conns:      localConns,
@@ -1367,7 +1367,7 @@ func (s *Server) accountConnectEvent(c *client) {
 		TypedEvent: TypedEvent{
 			Type: ConnectEventMsgType,
 			ID:   eid,
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Client: ClientInfo{
 			Start:     &c.start,
@@ -1392,7 +1392,7 @@ func (s *Server) accountConnectEvent(c *client) {
 
 // accountDisconnectEvent will send an account client disconnect event if there is interest.
 // This is a billing event.
-func (s *Server) accountDisconnectEvent(c *client, now time.Time, reason string) {
+func (s *Server) accountDisconnectEvent(c *client, now UtcTime, reason string) {
 	s.mu.Lock()
 	if !s.eventsEnabled() {
 		s.mu.Unlock()
@@ -1414,7 +1414,7 @@ func (s *Server) accountDisconnectEvent(c *client, now time.Time, reason string)
 		TypedEvent: TypedEvent{
 			Type: DisconnectEventMsgType,
 			ID:   eid,
-			Time: now.UTC(),
+			Time: now,
 		},
 		Client: ClientInfo{
 			Start:     &c.start,
@@ -1457,13 +1457,13 @@ func (s *Server) sendAuthErrorEvent(c *client) {
 	}
 	eid := s.nextEventID()
 	s.mu.Unlock()
-	now := time.Now()
+	now := UtcTimeNow()
 	c.mu.Lock()
 	m := DisconnectEventMsg{
 		TypedEvent: TypedEvent{
 			Type: DisconnectEventMsgType,
 			ID:   eid,
-			Time: now.UTC(),
+			Time: now,
 		},
 		Client: ClientInfo{
 			Start:     &c.start,

@@ -189,7 +189,7 @@ func TestVarz(t *testing.T) {
 	}
 
 	// Do some sanity checks on values
-	if time.Since(v.Start) > 10*time.Second {
+	if time.Since(v.Start.Time()) > 10*time.Second {
 		t.Fatal("Expected start time to be within 10 seconds.")
 	}
 

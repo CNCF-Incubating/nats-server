@@ -1925,7 +1925,7 @@ func TestPingNotSentTooSoon(t *testing.T) {
 	// Speed up detection of time elapsed by moving the c.start to more than
 	// 2 secs in the past.
 	c.mu.Lock()
-	c.start = time.Unix(0, c.start.UnixNano()-int64(maxNoRTTPingBeforeFirstPong+time.Second))
+	c.start = UtcTime(time.Unix(0, c.start.UnixNano()-int64(maxNoRTTPingBeforeFirstPong+time.Second)))
 	c.mu.Unlock()
 
 	errCh := make(chan error, 1)

@@ -93,7 +93,7 @@ type raftGroup struct {
 // streamAssignment is what the meta controller uses to assign streams to peers.
 type streamAssignment struct {
 	Client  *ClientInfo   `json:"client,omitempty"`
-	Created time.Time     `json:"created"`
+	Created UtcTime       `json:"created"`
 	Config  *StreamConfig `json:"stream"`
 	Group   *raftGroup    `json:"group"`
 	Sync    string        `json:"sync"`
@@ -109,7 +109,7 @@ type streamAssignment struct {
 // consumerAssignment is what the meta controller uses to assign consumers to streams.
 type consumerAssignment struct {
 	Client  *ClientInfo     `json:"client,omitempty"`
-	Created time.Time       `json:"created"`
+	Created UtcTime         `json:"created"`
 	Name    string          `json:"name"`
 	Stream  string          `json:"stream"`
 	Config  *ConsumerConfig `json:"consumer"`
@@ -769,7 +769,7 @@ func (js *jetStream) monitorCluster() {
 // Represents our stable meta state that we can write out.
 type writeableStreamAssignment struct {
 	Client    *ClientInfo   `json:"client,omitempty"`
-	Created   time.Time     `json:"created"`
+	Created   UtcTime       `json:"created"`
 	Config    *StreamConfig `json:"stream"`
 	Group     *raftGroup    `json:"group"`
 	Sync      string        `json:"sync"`
@@ -1622,7 +1622,7 @@ func (s *Server) sendStreamLostQuorumAdvisory(mset *stream) {
 		TypedEvent: TypedEvent{
 			Type: JSStreamQuorumLostAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream:   stream,
 		Replicas: s.replicas(node),
@@ -1650,7 +1650,7 @@ func (s *Server) sendStreamLeaderElectAdvisory(mset *stream) {
 		TypedEvent: TypedEvent{
 			Type: JSStreamLeaderElectedAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream:   stream,
 		Leader:   s.serverNameForNode(node.GroupLeader()),
@@ -2698,7 +2698,7 @@ func (s *Server) sendConsumerLostQuorumAdvisory(o *consumer) {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerQuorumLostAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream:   stream,
 		Consumer: consumer,
@@ -2728,7 +2728,7 @@ func (s *Server) sendConsumerLeaderElectAdvisory(o *consumer) {
 		TypedEvent: TypedEvent{
 			Type: JSConsumerLeaderElectedAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream:   stream,
 		Consumer: consumer,
@@ -3041,7 +3041,7 @@ func (s *Server) jsClusteredStreamRequest(ci *ClientInfo, acc *Account, subject,
 	// Pick a preferred leader.
 	rg.setPreferred()
 	// Sync subject for post snapshot sync.
-	sa := &streamAssignment{Group: rg, Sync: syncSubjForStream(), Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: time.Now()}
+	sa := &streamAssignment{Group: rg, Sync: syncSubjForStream(), Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: UtcTimeNow()}
 	cc.meta.Propose(encodeAddStreamAssignment(sa))
 }
 
@@ -3168,7 +3168,7 @@ func (s *Server) jsClusteredStreamRestoreRequest(ci *ClientInfo, acc *Account, r
 	}
 	// Pick a preferred leader.
 	rg.setPreferred()
-	sa := &streamAssignment{Group: rg, Sync: syncSubjForStream(), Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: time.Now()}
+	sa := &streamAssignment{Group: rg, Sync: syncSubjForStream(), Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: UtcTimeNow()}
 	// Now add in our restore state and pre-select a peer to handle the actual receipt of the snapshot.
 	sa.Restore = &req.State
 	cc.meta.Propose(encodeAddStreamAssignment(sa))
@@ -3578,7 +3578,7 @@ func (s *Server) jsClusteredConsumerRequest(ci *ClientInfo, acc *Account, subjec
 		}
 	}
 
-	ca := &consumerAssignment{Group: rg, Stream: stream, Name: oname, Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: time.Now().UTC()}
+	ca := &consumerAssignment{Group: rg, Stream: stream, Name: oname, Config: cfg, Subject: subject, Reply: reply, Client: ci, Created: UtcTimeNow()}
 	cc.meta.Propose(encodeAddConsumerAssignment(ca))
 }
 

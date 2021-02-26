@@ -1,7 +1,21 @@
+// Copyright 2020-2021 The NATS Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -121,8 +135,8 @@ const JSSnapshotCreatedAdvisoryType = "io.nats.jetstream.advisory.v1.snapshot_cr
 type JSSnapshotCompleteAdvisory struct {
 	TypedEvent
 	Stream string      `json:"stream"`
-	Start  time.Time   `json:"start"`
-	End    time.Time   `json:"end"`
+	Start  UtcTime     `json:"start"`
+	End    UtcTime     `json:"end"`
 	Client *ClientInfo `json:"client"`
 }
 
@@ -143,8 +157,8 @@ const JSRestoreCreateAdvisoryType = "io.nats.jetstream.advisory.v1.restore_creat
 type JSRestoreCompleteAdvisory struct {
 	TypedEvent
 	Stream string      `json:"stream"`
-	Start  time.Time   `json:"start"`
-	End    time.Time   `json:"end"`
+	Start  UtcTime     `json:"start"`
+	End    UtcTime     `json:"end"`
 	Bytes  int64       `json:"bytes"`
 	Client *ClientInfo `json:"client"`
 }
@@ -214,4 +228,74 @@ type JSServerOutOfSpaceAdvisory struct {
 	ServerID string `json:"server_id"`
 	Stream   string `json:"stream,omitempty"`
 	Cluster  string `json:"cluster"`
+}
+
+// Time that assures json parsing only emits/accepts times in UTC
+type UtcTime time.Time
+
+func (t UtcTime) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + time.Time(t).UTC().Format(time.RFC3339Nano) + `"`), nil
+}
+
+func (t *UtcTime) UnmarshalJSON(data []byte) error {
+	if len(data) <= 2 {
+		return fmt.Errorf("time not formated properly: %q", (*time.Time)(t).String())
+	}
+	pt, err := time.Parse(time.RFC3339Nano, string(data[1:len(data)-1]))
+	if err != nil {
+		return err
+	}
+	if pt.Location() != time.UTC {
+		return fmt.Errorf("time not in UTC: %q", (*time.Time)(t).String())
+	}
+	*t = UtcTime(pt)
+	return nil
+}
+
+func (t UtcTime) UnixNano() int64 {
+	return time.Time(t).UnixNano()
+}
+
+func (t UtcTime) Time() time.Time {
+	return time.Time(t)
+}
+
+func (t UtcTime) IsZero() bool {
+	return time.Time(t).IsZero()
+}
+
+func (t UtcTime) String() string {
+	return time.Time(t).String()
+}
+
+func (t UtcTime) Equal(u UtcTime) bool {
+	return time.Time(t).Equal(time.Time(u))
+}
+
+func (t UtcTime) Add(d time.Duration) UtcTime {
+	return UtcTime(time.Time(t).Add(d))
+}
+
+func (t UtcTime) Sub(d time.Time) time.Duration {
+	return time.Time(t).Sub(d)
+}
+
+func (t UtcTime) After(u time.Time) bool {
+	return time.Time(t).After(u)
+}
+
+func (t UtcTime) Before(u time.Time) bool {
+	return time.Time(t).Before(u)
+}
+
+func UtcTimeSince(t UtcTime) time.Duration {
+	return time.Since(time.Time(t))
+}
+
+func UtcTimeFromTime(t time.Time) UtcTime {
+	return UtcTime(t.UTC())
+}
+
+func UtcTimeNow() UtcTime {
+	return UtcTime(time.Now().UTC())
 }

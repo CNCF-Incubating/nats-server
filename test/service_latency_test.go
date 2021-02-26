@@ -1573,11 +1573,11 @@ func TestServiceLatencyLossTest(t *testing.T) {
 			latErr = append(latErr, fmt.Errorf("Expected different status for msg #%d: %d != %d", msgCnt, want, sl.Status))
 		}
 		if msgCnt > 1 {
-			if start.Before(sl.RequestStart) {
+			if start.Before(sl.RequestStart.Time()) {
 				latErr = append(latErr, fmt.Errorf("start times should indicate reordering %v : %v", start, sl.RequestStart))
 			}
 		}
-		start = sl.RequestStart
+		start = sl.RequestStart.Time()
 		if strings.EqualFold(sl.RequestHeader.Get("Uber-Trace-Id"), fmt.Sprintf("msg-%d", msgCnt)) {
 			latErr = append(latErr, fmt.Errorf("no header present"))
 		}

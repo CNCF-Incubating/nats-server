@@ -76,7 +76,7 @@ type PubAck struct {
 // StreamInfo shows config and current state for this stream.
 type StreamInfo struct {
 	Config  StreamConfig        `json:"config"`
-	Created time.Time           `json:"created"`
+	Created UtcTime             `json:"created"`
 	State   StreamState         `json:"state"`
 	Cluster *ClusterInfo        `json:"cluster,omitempty"`
 	Mirror  *StreamSourceInfo   `json:"mirror,omitempty"`
@@ -111,10 +111,10 @@ type StreamSourceInfo struct {
 
 // StreamSource dictates how streams can source from other streams.
 type StreamSource struct {
-	Name          string     `json:"name"`
-	OptStartSeq   uint64     `json:"opt_start_seq,omitempty"`
-	OptStartTime  *time.Time `json:"opt_start_time,omitempty"`
-	FilterSubject string     `json:"filter_subject,omitempty"`
+	Name          string   `json:"name"`
+	OptStartSeq   uint64   `json:"opt_start_seq,omitempty"`
+	OptStartTime  *UtcTime `json:"opt_start_time,omitempty"`
+	FilterSubject string   `json:"filter_subject,omitempty"`
 }
 
 // Stream is a jetstream stream of messages. When we receive a message internally destined
@@ -135,7 +135,7 @@ type stream struct {
 	consumers map[string]*consumer
 	numFilter int
 	cfg       StreamConfig
-	created   time.Time
+	created   UtcTime
 	stype     StorageType
 	ddmap     map[string]*ddentry
 	ddarr     []*ddentry
@@ -576,7 +576,7 @@ func (mset *stream) sendCreateAdvisory() {
 		TypedEvent: TypedEvent{
 			Type: JSStreamActionAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream:   name,
 		Action:   CreateEvent,
@@ -601,7 +601,7 @@ func (mset *stream) sendDeleteAdvisoryLocked() {
 		TypedEvent: TypedEvent{
 			Type: JSStreamActionAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream:   mset.cfg.Name,
 		Action:   DeleteEvent,
@@ -624,7 +624,7 @@ func (mset *stream) sendUpdateAdvisoryLocked() {
 		TypedEvent: TypedEvent{
 			Type: JSStreamActionAdvisoryType,
 			ID:   nuid.Next(),
-			Time: time.Now().UTC(),
+			Time: UtcTimeNow(),
 		},
 		Stream: mset.cfg.Name,
 		Action: ModifyEvent,
@@ -638,7 +638,7 @@ func (mset *stream) sendUpdateAdvisoryLocked() {
 }
 
 // Created returns created time.
-func (mset *stream) createdTime() time.Time {
+func (mset *stream) createdTime() UtcTime {
 	mset.mu.RLock()
 	created := mset.created
 	mset.mu.RUnlock()
@@ -646,7 +646,7 @@ func (mset *stream) createdTime() time.Time {
 }
 
 // Internal to allow creation time to be restored.
-func (mset *stream) setCreatedTime(created time.Time) {
+func (mset *stream) setCreatedTime(created UtcTime) {
 	mset.mu.Lock()
 	mset.created = created
 	mset.mu.Unlock()
@@ -1588,7 +1588,7 @@ func (mset *stream) unsubscribeUnlocked(sub *subscription) {
 
 func (mset *stream) setupStore(fsCfg *FileStoreConfig) error {
 	mset.mu.Lock()
-	mset.created = time.Now().UTC()
+	mset.created = UtcTimeNow()
 
 	switch mset.cfg.Storage {
 	case MemoryStorage:
@@ -2029,11 +2029,11 @@ type jsPubMsg struct {
 
 // StoredMsg is for raw access to messages in a stream.
 type StoredMsg struct {
-	Subject  string    `json:"subject"`
-	Sequence uint64    `json:"seq"`
-	Header   []byte    `json:"hdrs,omitempty"`
-	Data     []byte    `json:"data,omitempty"`
-	Time     time.Time `json:"time"`
+	Subject  string  `json:"subject"`
+	Sequence uint64  `json:"seq"`
+	Header   []byte  `json:"hdrs,omitempty"`
+	Data     []byte  `json:"data,omitempty"`
+	Time     UtcTime `json:"time"`
 }
 
 // TODO(dlc) - Maybe look at onering instead of chan - https://github.com/pltr/onering
@@ -2245,7 +2245,7 @@ func (mset *stream) getMsg(seq uint64) (*StoredMsg, error) {
 		Sequence: seq,
 		Header:   hdr,
 		Data:     msg,
-		Time:     time.Unix(0, ts).UTC(),
+		Time:     UtcTime(time.Unix(0, ts).UTC()),
 	}
 	return sm, nil
 }

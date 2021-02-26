@@ -46,7 +46,7 @@ type Account struct {
 	Nkey         string
 	Issuer       string
 	claimJWT     string
-	updated      time.Time
+	updated      UtcTime
 	mu           sync.RWMutex
 	sqmu         sync.Mutex
 	sl           *Sublist
@@ -308,7 +308,7 @@ func (a *Account) updateRemoteServer(m *AccountNumConns) []*client {
 			clients = append(clients, c)
 		}
 		sort.Slice(clients, func(i, j int) bool {
-			return clients[i].start.After(clients[j].start)
+			return clients[i].start.After(clients[j].start.Time())
 		})
 		over := (len(a.clients) - int(a.sysclients) + int(a.nrclients)) - int(a.mconns)
 		if over < len(clients) {
@@ -1128,7 +1128,7 @@ type ServiceLatency struct {
 	Requestor      *ClientInfo   `json:"requestor,omitempty"`
 	Responder      *ClientInfo   `json:"responder,omitempty"`
 	RequestHeader  http.Header   `json:"header,omitempty"` // only contains header(s) triggering the measurement
-	RequestStart   time.Time     `json:"start"`
+	RequestStart   UtcTime       `json:"start"`
 	ServiceLatency time.Duration `json:"service"`
 	SystemLatency  time.Duration `json:"system"`
 	TotalLatency   time.Duration `json:"total"`
@@ -1182,7 +1182,7 @@ type remoteLatency struct {
 func (a *Account) sendLatencyResult(si *serviceImport, sl *ServiceLatency) {
 	sl.Type = ServiceLatencyType
 	sl.ID = a.nextEventID()
-	sl.Time = time.Now().UTC()
+	sl.Time = UtcTimeNow()
 	a.mu.Lock()
 	lsubj := si.latency.subject
 	si.rc = nil
@@ -1199,7 +1199,7 @@ func (a *Account) sendBadRequestTrackingLatency(si *serviceImport, requestor *cl
 		Requestor: requestor.getClientInfo(si.share),
 	}
 	sl.RequestHeader = header
-	sl.RequestStart = time.Now().Add(-sl.Requestor.RTT).UTC()
+	sl.RequestStart = UtcTime(time.Now().Add(-sl.Requestor.RTT).UTC())
 	a.sendLatencyResult(si, sl)
 }
 
@@ -1219,7 +1219,7 @@ func (a *Account) sendReplyInterestLostTrackLatency(si *serviceImport) {
 	if rc != nil {
 		sl.Requestor = rc.getClientInfo(share)
 	}
-	sl.RequestStart = time.Unix(0, ts-int64(sl.Requestor.RTT)).UTC()
+	sl.RequestStart = UtcTime(time.Unix(0, ts-int64(sl.Requestor.RTT)).UTC())
 	a.sendLatencyResult(si, sl)
 }
 
@@ -1238,7 +1238,7 @@ func (a *Account) sendBackendErrorTrackingLatency(si *serviceImport, reason rsiR
 	if sl.Requestor != nil {
 		reqRTT = sl.Requestor.RTT
 	}
-	sl.RequestStart = time.Unix(0, ts-int64(reqRTT)).UTC()
+	sl.RequestStart = UtcTime(time.Unix(0, ts-int64(reqRTT)).UTC())
 	if reason == rsiNoDelivery {
 		sl.Status = 503
 		sl.Error = "Service Unavailable"
@@ -1274,7 +1274,7 @@ func (a *Account) sendTrackingLatency(si *serviceImport, responder *client) bool
 	if sl.Requestor != nil {
 		reqRTT = sl.Requestor.RTT
 	}
-	sl.RequestStart = time.Unix(0, si.ts-int64(reqRTT)).UTC()
+	sl.RequestStart = UtcTime(time.Unix(0, si.ts-int64(reqRTT)).UTC())
 	sl.ServiceLatency = serviceRTT - respRTT
 	sl.TotalLatency = sl.Requestor.RTT + serviceRTT
 	if respRTT > 0 {
@@ -1286,7 +1286,7 @@ func (a *Account) sendTrackingLatency(si *serviceImport, responder *client) bool
 
 	sl.Type = ServiceLatencyType
 	sl.ID = a.nextEventID()
-	sl.Time = time.Now().UTC()
+	sl.Time = UtcTimeNow()
 
 	// If we are expecting a remote measurement, store our sl here.
 	// We need to account for the race between this and us receiving the
@@ -3153,14 +3153,14 @@ func (s *Server) updateAccountClaimsWithRefresh(a *Account, ac *jwt.AccountClaim
 		a.jsLimits = nil
 	}
 
-	a.updated = time.Now()
+	a.updated = UtcTimeNow()
 	a.mu.Unlock()
 
 	clients := gatherClients()
 	// Sort if we are over the limit.
 	if a.MaxTotalConnectionsReached() {
 		sort.Slice(clients, func(i, j int) bool {
-			return clients[i].start.After(clients[j].start)
+			return clients[i].start.After(clients[j].start.Time())
 		})
 	}
 

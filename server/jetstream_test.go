@@ -438,7 +438,7 @@ func TestJetStreamConsumerWithStartTime(t *testing.T) {
 			}
 
 			time.Sleep(10 * time.Millisecond)
-			startTime := time.Now()
+			startTime := UtcTimeNow()
 
 			for i := 0; i < toSend; i++ {
 				sendStreamMsg(t, nc, subj, fmt.Sprintf("MSG: %d", i+1))
@@ -1181,7 +1181,7 @@ func TestJetStreamCreateConsumer(t *testing.T) {
 			}
 
 			// StartPosition conflicts
-			now := time.Now()
+			now := UtcTimeNow()
 			if _, err := mset.addConsumer(&ConsumerConfig{
 				DeliverSubject: "A",
 				OptStartSeq:    1,
@@ -1784,7 +1784,7 @@ func TestJetStreamWorkQueueRequest(t *testing.T) {
 			// Now do expiration
 			req.Batch = 1
 			req.NoWait = false
-			req.Expires = time.Now().Add(10 * time.Millisecond)
+			req.Expires = UtcTime(time.Now().Add(10 * time.Millisecond))
 			jreq, _ = json.Marshal(req)
 
 			nc.PublishRequest(getSubj, reply, jreq)
@@ -3855,7 +3855,7 @@ func TestJetStreamConsumerMaxDeliveryAndServerRestart(t *testing.T) {
 		t.Fatalf("Error looking up consumer: %v", err)
 	}
 	// Consumer created times can have a very small skew.
-	delta := o.createdTime().Sub(consumerCreated)
+	delta := o.createdTime().Sub(time.Time(consumerCreated))
 	if delta > 5*time.Millisecond {
 		t.Fatalf("Consumer creation time not restored, wanted %v, got %v", consumerCreated, o.createdTime())
 	}
@@ -5272,8 +5272,8 @@ func TestJetStreamMetadata(t *testing.T) {
 					t.Fatalf("Did not receive correct response")
 				}
 				smsg := resp.Message
-				if ts != smsg.Time.UnixNano() {
-					t.Fatalf("Wrong timestamp in ReplyInfo for msg %d, expected %v got %v", i, ts, smsg.Time.UnixNano())
+				if ts != smsg.Time.Time().UnixNano() {
+					t.Fatalf("Wrong timestamp in ReplyInfo for msg %d, expected %v got %v", i, ts, smsg.Time.Time().UnixNano())
 				}
 				if sseq != i {
 					t.Fatalf("Expected set sequence of %d, got %d", i, sseq)
@@ -7111,7 +7111,7 @@ func TestJetStreamRequestAPI(t *testing.T) {
 	if scResp.StreamInfo == nil || scResp.Error != nil {
 		t.Fatalf("Did not receive correct response: %+v", scResp.Error)
 	}
-	if time.Since(scResp.Created) > time.Second {
+	if UtcTimeSince(scResp.Created) > time.Second {
 		t.Fatalf("Created time seems wrong: %v\n", scResp.Created)
 	}
 
@@ -7254,7 +7254,7 @@ func TestJetStreamRequestAPI(t *testing.T) {
 	if msi.State.Msgs != uint64(toSend) {
 		t.Fatalf("Expected to get %d msgs, got %d", toSend, msi.State.Msgs)
 	}
-	if time.Since(msi.Created) > time.Second {
+	if UtcTimeSince(msi.Created) > time.Second {
 		t.Fatalf("Created time seems wrong: %v\n", msi.Created)
 	}
 
@@ -7304,7 +7304,7 @@ func TestJetStreamRequestAPI(t *testing.T) {
 	if ccResp.ConsumerInfo == nil || ccResp.Error != nil {
 		t.Fatalf("Got a bad response %+v", ccResp)
 	}
-	if time.Since(ccResp.Created) > time.Second {
+	if UtcTimeSince(ccResp.Created) > time.Second {
 		t.Fatalf("Created time seems wrong: %v\n", ccResp.Created)
 	}
 
@@ -7971,7 +7971,7 @@ func TestJetStreamDeleteMsg(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error fetching message for seq: %d - %v", expectedFirstSeq, err)
 				}
-				expectedState.FirstTime = sm.Time
+				expectedState.FirstTime = UtcTime(sm.Time)
 				expectedState.Deleted = nil
 
 				afterState := mset.state()
@@ -8025,7 +8025,7 @@ func TestJetStreamDeleteMsg(t *testing.T) {
 
 			expected := StreamState{Msgs: 6, Bytes: 6 * bytesPerMsg, FirstSeq: 12, LastSeq: 20}
 			state = mset.state()
-			state.FirstTime, state.LastTime, state.Deleted = time.Time{}, time.Time{}, nil
+			state.FirstTime, state.LastTime, state.Deleted = UtcTime{}, UtcTime{}, nil
 
 			if !reflect.DeepEqual(expected, state) {
 				t.Fatalf("State not what we expected. Expected %+v, got %+v\n", expected, state)
@@ -10540,7 +10540,7 @@ func TestJetStreamMirrorBasics(t *testing.T) {
 	})
 
 	// Make sure setting time works ok.
-	start := time.Now().Add(-2 * time.Hour)
+	start := UtcTimeNow().Add(-2 * time.Hour)
 	cfg = &StreamConfig{
 		Name:    "M4",
 		Storage: FileStorage,
